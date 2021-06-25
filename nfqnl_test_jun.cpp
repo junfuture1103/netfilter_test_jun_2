@@ -25,7 +25,7 @@ void dump(unsigned char* buf, int size, int* check) {
     if(data_size != 0){
         packet = packet + tcp_hdr->th_off*4 + ip_hdr_v4->ip_hl*4;
 
-        if (packet[0] == 'G'){
+        if (packet[0] == 'G'){ //POST? "GET "로 필터링하기
             printf("\n==========http request===========\n");
             printf("\n");
             for (i = 0; i < data_size; i++) {
@@ -35,21 +35,20 @@ void dump(unsigned char* buf, int size, int* check) {
             }
             printf("\n");
 
-            char* ptr = strstr((char*)packet, "Host: ");
+            char* ptr = strstr((char*)packet, "Host: "); //strstr,, Host: 없으면 \0 나올때까지 계속감 -> strnstr
             if (ptr !=NULL){
                 ptr = ptr + strlen("Host: ");
-                ptr = strtok(ptr, "\r\n");
+                ptr = strtok(ptr, "\r\n"); //strtok도 마찬가지 없으면 \0 나올때까지 계속감 ~ 수동으로 찾기
                 printf("\nHOST_BY_JUN : %s\n", ptr);
 
                 if(strcmp(ptr, site) == 0){
                     *check = 1;
-                }
-                else{
-                    *check = 0;
+					return;
                 }
             }
         }
     }
+	*check = 0;
 }
 /* returns packet id */
 static uint32_t print_pkt (struct nfq_data *tb, int* check)
@@ -124,14 +123,19 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 	int check = 0;
 	uint32_t id = print_pkt(nfa, &check);
 	printf("entering callback\n");
+
+	return nfq_set_verdict(qh, id, (check == 1) ? NF_DROP : NF_ACCEPT, 0, NULL);
+	/*
     if (check == 1){
         printf("DROP %s...\n", site);
 	    return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
         check = 0;
     }
+	//만약에 변조하면은 원하는 패킷 시작위치, 패킷 길이로 넘길 수 있음 pcap vs netfilter(drop,변조)
     else{
         return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
     }
+	*/
 }
 
 int main(int argc, char **argv)
